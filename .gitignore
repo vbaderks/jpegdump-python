@@ -1,3 +1,8 @@
-# Environments
+# Copyright (c) Victor Derks.
+# SPDX-License-Identifier: MIT
 
+# Environments
 venv/
+
+# IDEs
+.vscode/

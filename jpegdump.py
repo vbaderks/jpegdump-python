@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: MIT
 
 import sys
-from enum import Enum, unique
+from enum import IntEnum, unique
 from typing import BinaryIO
 
 
 @unique
-class JpegMarker(Enum):
+class JpegMarker(IntEnum):
     START_OF_IMAGE = 0xD8  # SOI
     END_OF_IMAGE = 0xD9  # EOI
     START_OF_SCAN = 0xDA  # SOS
@@ -23,51 +23,60 @@ class JpegReader:
     def __init__(self, file: BinaryIO) -> None:
         self.file = file
         self.jpegls_stream = False
-        self.dump_functions = {JpegMarker.START_OF_IMAGE: self.dump_start_of_image_marker}
+        self.dump_functions = {JpegMarker.START_OF_IMAGE: self.__dump_start_of_image_marker}
 
-    def read_byte(self) -> bytes:
+    def dump(self) -> None:
+        byte = self.__read_byte()
+        while byte:
+            if byte[0] == 0xFF:
+                byte = self.__read_byte()
+                if self.__is_marker_code(byte[0]):
+                    self.__dump_marker_code(byte[0])
+            byte = self.__read_byte()
+
+    def __read_byte(self) -> bytes:
         return self.file.read(1)
 
-    def is_marker_code(self, marker_code) -> bool:
+    def __is_marker_code(self, marker_code: int) -> bool:
         # To prevent marker codes in the encoded bit stream encoders must encode the next byte zero or
         # the next bit zero (jpeg-ls).
         if self.jpegls_stream:
             return (marker_code & 0x80) == 0X80
         return marker_code > 0
 
-    def dump_marker_code(self, marker_code) -> None:
-        dump_function = self.dump_functions.get(marker_code, self.dump_unknown_marker)
-        dump_function(marker_code)
+    def __dump_marker_code(self, marker_code: int) -> None:
+        dump_function = self.dump_functions.get(marker_code, None)
+        if dump_function == None:
+            self.__dump_unknown_marker(marker_code)
+        else:
+            dump_function()
 
-    def dump_start_of_image_marker(self):
-        pass
+    def __dump_start_of_image_marker(self) -> None:
+        print(f"{self.__get_start_offset():8} Marker 0xFFD8: SOI (Start Of Image), defined in ITU T.81/IEC 10918-1")
 
-    def dump_unknown_marker(self, marker_code) -> None:
-        print(f"{self.get_start_offset():8} Marker 0xFF{marker_code:02X}");
+    def __dump_unknown_marker(self, marker_code: int) -> None:
+        print(f"{self.__get_start_offset():8} Marker 0xFF{marker_code:02X}")
 
-    def get_start_offset(self) -> int:
-        return self.file.tell() - 2;
-
-    def dump(self) -> None:
-        byte = self.read_byte()
-        while byte:
-            if byte[0] == 0xFF:
-                byte = self.read_byte()
-                if self.is_marker_code(byte[0]):
-                    self.dump_marker_code(byte[0])
-            byte = self.read_byte()
+    def __get_start_offset(self) -> int:
+        return self.file.tell() - 2
 
 
-if len(sys.argv) < 2:
-    print("Usage: jpegdump <filename>")
-    raise SystemExit(1)
+def main() -> int:
+    if len(sys.argv) < 2:
+        print("Usage: jpegdump <filename>")
+        return 64  # os.EX_USAGE
 
-try:
-    with open(sys.argv[1], "rb") as jpeg_file:
-        print(f"Dumping JPEG file: {sys.argv[1]}")
-        print("=============================================================================")
+    try:
+        with open(sys.argv[1], "rb") as jpeg_file:
+            print(f"Dumping JPEG file: {sys.argv[1]}")
+            print("=============================================================================")
 
-        reader = JpegReader(jpeg_file)
-        reader.dump()
-except FileNotFoundError:
-    print("Error opening the file")
+            reader = JpegReader(jpeg_file)
+            reader.dump()
+            return 0  # os.EX_OK
+    except FileNotFoundError:
+        print("Error opening the file")
+        return 74  # os.EX_IOERR
+
+
+main()
