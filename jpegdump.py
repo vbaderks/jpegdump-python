@@ -27,14 +27,15 @@ class JpegReader:
                                JpegMarker.END_OF_IMAGE: self.__dump_end_of_image,
                                JpegMarker.START_OF_FRAME_JPEGLS: self.__dump_start_of_frame_jpegls,
                                JpegMarker.START_OF_SCAN: self.__dump_start_of_scan}
+        self.interleave_names = ["None", "Line interleaved", "Sample interleaved"]
 
     def dump(self) -> None:
         byte = self.__read_bytes()
         while byte:
             if byte[0] == 0xFF:
-                byte = self.__read_bytes()
-                if self.__is_marker_code(byte[0]):
-                    self.__dump_marker_code(byte[0])
+                byte = self.__read_byte()
+                if self.__is_marker_code(byte):
+                    self.__dump_marker_code(byte)
             byte = self.__read_bytes()
 
     def __read_bytes(self) -> bytes:
@@ -50,7 +51,7 @@ class JpegReader:
         # To prevent marker codes in the encoded bit stream encoders must encode the next byte zero or
         # the next bit zero (jpeg-ls).
         if self.jpegls_stream:
-            return (marker_code & 0x80) == 0X80
+            return (marker_code & 0x80) == 0x80
         return marker_code > 0
 
     def __dump_marker_code(self, marker_code: int) -> None:
@@ -83,28 +84,28 @@ class JpegReader:
             print(f"{position:8}   H and V sampling factor (Hi + Vi) = {sampling_factor}"
                   f" ({sampling_factor >> 4} + {sampling_factor & 0xF})") 
             print(f"{self.__position:8}   Quantization table (Tqi) [reserved, should be 0] = {self.__read_byte()}")
-        jpegls_stream = True
+        self.jpegls_stream = True
 
     def __dump_start_of_scan(self) -> None:
         print(f"{self.__get_start_offset:8} Marker 0xFFDA: SOS (Start Of Scan), defined in ITU T.81/IEC 10918-1")
         print(f"{self.__position:8}  Size = {self.__read_uint16_big_endian()}")
+        print(f"{self.__position:8}  Component Count = ", end='')
         component_count: int = self.__read_byte()
-        print(f"{self.__position:8}  Component Count = {component_count}")
+        print(component_count)
         for component in range(component_count):
-            print(f"{self.__position:8}   Component identifier (Ci) = {1}", self.__read_byte())
-            mapping_table_selector: int = self.__read_byte()
-            print(f"{self.__position:8}   Mapping table selector = {mapping_table_selector}")
+            print(f"{self.__position:8}   Component identifier (Ci) = {self.__read_byte()}")
+            print(f"{self.__position:8}   Mapping table selector = {self.__read_byte()}")
         print(f"{self.__position:8}  Near lossless (NEAR parameter) = {self.__read_byte()}")
+        print(f"{self.__position:8}  Interleave mode (ILV parameter) = ", end='')
         interleave_mode: int = self.__read_byte()
-        print(f"{self.__position:8}  Interleave mode (ILV parameter) = {interleave_mode}"
-              f" ({self.__get_interleave_modename(interleave_mode)})")
+        print(f"{interleave_mode} ({self.__get_interleave_mode_name(interleave_mode)})")
         print(f"{self.__position:8}  Point Transform = {self.__read_byte()}")
 
     def __dump_unknown_marker(self, marker_code: int) -> None:
         print(f"{self.__get_start_offset :8} Marker 0xFF{marker_code:02X}")
 
-    def __get_interleave_modename(self, interleave_mode: int) -> str:
-        pass
+    def __get_interleave_mode_name(self, interleave_mode: int) -> str:
+        return self.interleave_names[interleave_mode] if interleave_mode < len(self.interleave_names) else "Invalid"
 
     @property
     def __position(self) -> int:
