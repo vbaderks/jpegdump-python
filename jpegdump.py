@@ -24,6 +24,7 @@ class JpegReader:
         self.file = file
         self.jpegls_stream = False
         self.dump_functions = {JpegMarker.START_OF_IMAGE: self.__dump_start_of_image_marker,
+                               JpegMarker.END_OF_IMAGE: self.__dump_end_of_image,
                                JpegMarker.START_OF_FRAME_JPEGLS: self.__dump_start_of_frame_jpegls}
 
     def dump(self) -> None:
@@ -59,7 +60,10 @@ class JpegReader:
             dump_function()
 
     def __dump_start_of_image_marker(self) -> None:
-        print(f"{self.__get_start_offset :8} Marker 0xFFD8: SOI (Start Of Image), defined in ITU T.81/IEC 10918-1")
+        print(f"{self.__get_start_offset:8} Marker 0xFFD8: SOI (Start Of Image), defined in ITU T.81/IEC 10918-1")
+
+    def __dump_end_of_image(self) -> None:
+        print(f"{self.__get_start_offset:8} Marker 0xFFD9. EOI (End Of Image), defined in ITU T.81/IEC 10918-1")
 
     def __dump_start_of_frame_jpegls(self) -> None:
         print(f"{self.__get_start_offset :8} Marker 0xFFF7: SOF_55 (Start Of Frame JPEG-LS),"
