@@ -1,0 +1,9 @@
+# Copyright (c) Victor Derks.
+# SPDX-License-Identifier: MIT
+
+# Set default behavior to automatically normalize line endings.
+* text=auto
+
+# Explicit define text files types.
+*.md text
+*.py text
